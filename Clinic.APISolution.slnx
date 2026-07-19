@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Clinic.API/Clinic.API.csproj" />
+  <Project Path="Clinic.Application/Clinic.Application.csproj" />
+  <Project Path="Clinic.Domain/Clinic.Domain.csproj" />
+  <Project Path="Clinic.Infrastructure/Clinic.Infrastructure.csproj" />
+  <Project Path="Clinic.Tests/Clinic.Tests.csproj" Id="5e57884b-7d19-4c41-b9c3-6c912167028f" />
+</Solution>
