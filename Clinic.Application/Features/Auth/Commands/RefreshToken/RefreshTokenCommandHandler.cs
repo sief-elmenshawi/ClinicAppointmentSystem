@@ -1,6 +1,7 @@
 ﻿using Clinic.Application.Common;
 using Clinic.Application.Features.Auth.Commands.Login;
 using Clinic.Application.Interfaces;
+using Clinic.Domain.Entities;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -23,7 +24,7 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
     public async Task<Result<AuthResultDto>> Handle(RefreshTokenCommand request, CancellationToken cancellationToken)
     {
         var storedToken = await _context.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == request.RefreshToken, cancellationToken);
+            .FirstOrDefaultAsync(t => t.Token == RefreshTokenHasher.Hash(request.RefreshToken), cancellationToken);
 
         if (storedToken is null || storedToken.IsRevoked || storedToken.ExpiresAt < DateTime.UtcNow)
             return Result<AuthResultDto>.Failure("Invalid or expired refresh token.");
@@ -33,6 +34,19 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, R
 
         var newAccessToken = _jwtTokenGenerator.GenerateToken(storedToken.UserId, email!, roles);
 
-        return Result<AuthResultDto>.Success(new AuthResultDto(newAccessToken, storedToken.Token));
+        // تدوير الـ token: أي token بيستخدم مرة واحدة بس (يمنع إعادة استخدامه لو اتسرق)
+        storedToken.IsRevoked = true;
+
+        var newRefreshToken = _jwtTokenGenerator.GenerateRefreshToken();
+        _context.RefreshTokens.Add(new Clinic.Domain.Entities.RefreshToken
+        {
+            Token = RefreshTokenHasher.Hash(newRefreshToken),
+            UserId = storedToken.UserId,
+            ExpiresAt = DateTime.UtcNow.AddDays(7)
+        });
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return Result<AuthResultDto>.Success(new AuthResultDto(newAccessToken, newRefreshToken));
     }
 }

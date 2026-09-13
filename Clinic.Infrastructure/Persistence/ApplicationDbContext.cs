@@ -11,9 +11,11 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
     public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
         : base(options) { }
 
+    public DbSet<Department> Departments => Set<Department>();
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<Patient> Patients => Set<Patient>();
     public DbSet<Specialization> Specializations => Set<Specialization>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<DoctorWorkingHour> DoctorWorkingHours => Set<DoctorWorkingHour>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
@@ -33,5 +35,6 @@ public class ApplicationDbContext : IdentityDbContext<ApplicationUser>, IApplica
         builder.Entity<DoctorWorkingHour>().HasQueryFilter(w => !w.Doctor.IsDeleted);
         builder.Entity<DoctorRating>().HasQueryFilter(r => !r.Doctor.IsDeleted);
         builder.Entity<DoctorUnavailability>().HasQueryFilter(u => !u.Doctor.IsDeleted);
+        builder.Entity<Notification>().HasQueryFilter(n => !n.Doctor.IsDeleted);
     }
 }

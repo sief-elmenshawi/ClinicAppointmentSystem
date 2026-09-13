@@ -16,6 +16,7 @@ public class CreateAppointmentCommandHandlerTests
     private readonly TestApplicationDbContext _context;
     private readonly Mock<IIdentityService> _identityServiceMock;
     private readonly Mock<IPublisher> _publisherMock;
+    private readonly Mock<ICurrentUserService> _currentUserServiceMock;
     private readonly CreateAppointmentCommandHandler _handler;
 
     public CreateAppointmentCommandHandlerTests()
@@ -27,8 +28,12 @@ public class CreateAppointmentCommandHandlerTests
         _context = new TestApplicationDbContext(options);
         _identityServiceMock = new Mock<IIdentityService>();
         _publisherMock = new Mock<IPublisher>();
+        _currentUserServiceMock = new Mock<ICurrentUserService>();
+        _currentUserServiceMock.Setup(s => s.UserId).Returns("pat-1");
+        _currentUserServiceMock.Setup(s => s.IsInRole(It.IsAny<string>())).Returns(false);
 
-        _handler = new CreateAppointmentCommandHandler(_context, _identityServiceMock.Object, _publisherMock.Object);
+        _handler = new CreateAppointmentCommandHandler(
+            _context, _identityServiceMock.Object, _publisherMock.Object, _currentUserServiceMock.Object);
 
         SeedBasicData();
     }

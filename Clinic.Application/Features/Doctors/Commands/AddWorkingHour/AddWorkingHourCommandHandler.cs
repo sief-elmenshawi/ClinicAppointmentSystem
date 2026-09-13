@@ -21,7 +21,7 @@ public class AddWorkingHourCommandHandler : IRequestHandler<AddWorkingHourComman
             .AnyAsync(d => d.Id == request.DoctorId, cancellationToken);
 
         if (!doctorExists)
-            return Result<int>.Failure("Doctor not found.");
+            return Result<int>.Failure("Doctor not found.", ErrorType.NotFound);
 
         // امنع تداخل مواعيد الشغل لنفس اليوم (مثلاً 10-2 و 1-3 متعارضين)
         var overlaps = await _context.DoctorWorkingHours
@@ -31,7 +31,7 @@ public class AddWorkingHourCommandHandler : IRequestHandler<AddWorkingHourComman
                 cancellationToken);
 
         if (overlaps)
-            return Result<int>.Failure("This time range overlaps with an existing working hour.");
+            return Result<int>.Failure("This time range overlaps with an existing working hour.", ErrorType.Conflict);
 
         var workingHour = new DoctorWorkingHour
         {

@@ -8,9 +8,11 @@ public class TestApplicationDbContext : DbContext, IApplicationDbContext
 {
     public TestApplicationDbContext(DbContextOptions<TestApplicationDbContext> options) : base(options) { }
 
+    public DbSet<Department> Departments => Set<Department>();
     public DbSet<Doctor> Doctors => Set<Doctor>();
     public DbSet<Patient> Patients => Set<Patient>();
     public DbSet<Specialization> Specializations => Set<Specialization>();
+    public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<DoctorWorkingHour> DoctorWorkingHours => Set<DoctorWorkingHour>();
     public DbSet<Appointment> Appointments => Set<Appointment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();

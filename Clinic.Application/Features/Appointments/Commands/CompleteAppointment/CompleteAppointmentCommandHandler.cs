@@ -25,22 +25,29 @@ public class CompleteAppointmentCommandHandler : IRequestHandler<CompleteAppoint
             .FirstOrDefaultAsync(a => a.Id == request.AppointmentId, cancellationToken);
 
         if (appointment is null)
-            return Result<bool>.Failure("Appointment not found.");
+            return Result<bool>.Failure("Appointment not found.", ErrorType.NotFound);
 
         // تحقق إن الدكتور صاحب التوكن هو نفسه صاحب الحجز
         if (appointment.Doctor.ApplicationUserId != _currentUserService.UserId)
-            return Result<bool>.Failure("You are not authorized to complete this appointment.");
+            return Result<bool>.Failure("You are not authorized to complete this appointment.", ErrorType.Forbidden);
 
         if (appointment.Status == AppointmentStatus.Cancelled)
-            return Result<bool>.Failure("Cannot complete a cancelled appointment.");
+            return Result<bool>.Failure("Cannot complete a cancelled appointment.", ErrorType.Conflict);
 
         if (appointment.Status == AppointmentStatus.Completed)
-            return Result<bool>.Failure("Appointment is already completed.");
+            return Result<bool>.Failure("Appointment is already completed.", ErrorType.Conflict);
 
         appointment.Status = AppointmentStatus.Completed;
         appointment.Notes = request.Notes;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result<bool>.Failure("This appointment was modified by another request. Please refresh and try again.", ErrorType.Conflict);
+        }
 
         return Result<bool>.Success(true);
     }

@@ -24,7 +24,7 @@ public class CreateDoctorCommandHandler : IRequestHandler<CreateDoctorCommand, R
             .AnyAsync(s => s.Id == request.SpecializationId, cancellationToken);
 
         if (!specializationExists)
-            return Result<int>.Failure("Specialization not found.");
+            return Result<int>.Failure("Specialization not found.", ErrorType.NotFound);
 
         // 2. اعمل الـ Identity User الأول
         var (succeeded, userId, error) = await _identityService.CreateUserAsync(

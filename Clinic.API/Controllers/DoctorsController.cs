@@ -2,7 +2,9 @@
 using Clinic.Application.Features.Doctors.Commands.AddWorkingHour;
 using Clinic.Application.Features.Doctors.Commands.CreateDoctor;
 using Clinic.Application.Features.Doctors.Commands.DeleteDoctor;
+using Clinic.Application.Features.Doctors.Queries.GetAllDoctors;
 using Clinic.Application.Features.Doctors.Queries.GetAvailableSlots;
+using Clinic.Application.Features.Doctors.Queries.GetCurrentDoctor;
 using Clinic.Application.Features.Doctors.Queries.GetDoctorRatings;
 using Clinic.Application.Features.Doctors.Queries.GetDoctorsBySpecialization;
 using MediatR;
@@ -13,7 +15,6 @@ namespace Clinic.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles ="Admin")]
 public class DoctorsController : ControllerBase
 {
     private readonly IMediator _mediator;
@@ -23,13 +24,31 @@ public class DoctorsController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> Create(CreateDoctorCommand command)
     {
         var result = await _mediator.Send(command);
-        return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
+        return result.ToHttpResult();
     }
 
+    [Authorize(Roles = "Doctor")]
+    [HttpGet("me")]
+    public async Task<IActionResult> GetMe()
+    {
+        var result = await _mediator.Send(new GetCurrentDoctorQuery());
+        return result.ToHttpResult();
+    }
+
+    [Authorize(Roles = "Admin")]
+    [HttpGet]
+    public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 20)
+    {
+        var result = await _mediator.Send(new GetAllDoctorsQuery(pageNumber, pageSize));
+        return Ok(result.Value);
+    }
+
+    [Authorize(Roles = "Admin")]
     [HttpPost("{doctorId}/working-hours")]
     public async Task<IActionResult> AddWorkingHour(int doctorId, AddWorkingHourCommand command)
     {
@@ -37,7 +56,7 @@ public class DoctorsController : ControllerBase
             return BadRequest("Doctor ID mismatch.");
 
         var result = await _mediator.Send(command);
-        return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
+        return result.ToHttpResult();
     }
     [AllowAnonymous]
     [HttpGet("{doctorId}/available-slots")]
@@ -47,11 +66,12 @@ public class DoctorsController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _mediator.Send(new DeleteDoctorCommand(id));
-        return result.IsSuccess ? Ok() : BadRequest(result.Error);
+        return result.ToHttpActionResult();
     }
 
     [AllowAnonymous]
@@ -69,6 +89,7 @@ public class DoctorsController : ControllerBase
         return Ok(result.Value);
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost("{doctorId}/unavailability")]
     public async Task<IActionResult> AddUnavailability(int doctorId, AddUnavailabilityCommand command)
     {
@@ -76,6 +97,6 @@ public class DoctorsController : ControllerBase
             return BadRequest("Doctor ID mismatch.");
 
         var result = await _mediator.Send(command);
-        return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
+        return result.ToHttpResult();
     }
 }

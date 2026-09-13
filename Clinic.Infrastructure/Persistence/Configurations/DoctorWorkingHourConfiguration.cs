@@ -10,5 +10,7 @@ public class DoctorWorkingHourConfiguration : IEntityTypeConfiguration<DoctorWor
     {
         builder.Property(w => w.SlotDurationMinutes)
             .HasDefaultValue(30);
+
+        builder.HasIndex(w => new { w.DoctorId, w.DayOfWeek });
     }
 }

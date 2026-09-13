@@ -1,6 +1,7 @@
 ﻿using Clinic.Application.Features.Specializations.Commands.CreateSpecialization;
 using Clinic.Application.Features.Specializations.Queries.GetAllSpecializations;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Clinic.API.Controllers;
@@ -16,14 +17,13 @@ public class SpecializationsController : ControllerBase
         _mediator = mediator;
     }
 
+    [Authorize(Roles = "Admin")]
     [HttpPost]
     public async Task<IActionResult> Create(CreateSpecializationCommand command)
     {
         var result = await _mediator.Send(command);
 
-        return result.IsSuccess
-            ? Ok(result.Value)
-            : BadRequest(result.Error);
+        return result.ToHttpResult();
     }
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)

@@ -20,7 +20,7 @@ public class DeleteDoctorCommandHandler : IRequestHandler<DeleteDoctorCommand, R
             .FirstOrDefaultAsync(d => d.Id == request.DoctorId, cancellationToken);
 
         if (doctor is null)
-            return Result<bool>.Failure("Doctor not found.");
+            return Result<bool>.Failure("Doctor not found.", ErrorType.NotFound);
 
         // Soft Delete صريح - مش .Remove()
         doctor.IsDeleted = true;

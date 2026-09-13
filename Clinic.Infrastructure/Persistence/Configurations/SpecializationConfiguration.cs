@@ -13,5 +13,10 @@ public class SpecializationConfiguration : IEntityTypeConfiguration<Specializati
             .HasMaxLength(100);
 
         builder.HasIndex(s => s.Name).IsUnique();
+
+        builder.HasOne(s => s.Department)
+            .WithMany(d => d.Specializations)
+            .HasForeignKey(s => s.DepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

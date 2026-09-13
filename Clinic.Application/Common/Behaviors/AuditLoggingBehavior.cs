@@ -43,6 +43,11 @@ public class AuditLoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequ
         }
         finally
         {
+            // بعد فشل الـ Command (مثل صراع الـ Slot الفريد) تفضل الكائنات متتبعة بإصدار مسموم،
+            // ولو حفظنا الـ Audit عليها هيحاول يعيد نفس الـ INSERT الفاشل → 500 بدل رسالة ودية.
+            // بنفضّي الـ ChangeTracker قبل ما نضيف سطر الـ Audit.
+            _context.ChangeTracker.Clear();
+
             var log = new AuditLog
             {
                 UserId = _currentUserService.UserId ?? "Anonymous",
@@ -52,7 +57,15 @@ public class AuditLoggingBehavior<TRequest, TResponse> : IPipelineBehavior<TRequ
             };
 
             _context.AuditLogs.Add(log);
-            await _context.SaveChangesAsync(cancellationToken);
+
+            try
+            {
+                await _context.SaveChangesAsync(cancellationToken);
+            }
+            catch
+            {
+                // Audit logging يجب ألا يكسر مسار الطلب الأصلي أبدًا
+            }
         }
     }
 

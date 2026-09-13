@@ -13,13 +13,18 @@ public class CreateAppointmentCommandHandler : IRequestHandler<CreateAppointment
     private readonly IApplicationDbContext _context;
     private readonly IIdentityService _identityService;
     private readonly IPublisher _publisher;
+    private readonly ICurrentUserService _currentUserService;
 
     public CreateAppointmentCommandHandler(
-        IApplicationDbContext context, IIdentityService identityService, IPublisher publisher)
+        IApplicationDbContext context,
+        IIdentityService identityService,
+        IPublisher publisher,
+        ICurrentUserService currentUserService)
     {
         _context = context;
         _identityService = identityService;
         _publisher = publisher;
+        _currentUserService = currentUserService;
     }
 
     public async Task<Result<int>> Handle(CreateAppointmentCommand request, CancellationToken cancellationToken)
@@ -28,19 +33,25 @@ public class CreateAppointmentCommandHandler : IRequestHandler<CreateAppointment
         var doctorExists = await _context.Doctors
             .AnyAsync(d => d.Id == request.DoctorId, cancellationToken);
         if (!doctorExists)
-            return Result<int>.Failure("Doctor not found.");
+            return Result<int>.Failure("Doctor not found.", ErrorType.NotFound);
 
         var patient = await _context.Patients
             .FirstOrDefaultAsync(p => p.Id == request.PatientId, cancellationToken);
         if (patient is null)
-            return Result<int>.Failure("Patient not found.");
+            return Result<int>.Failure("Patient not found.", ErrorType.NotFound);
+
+        // 1.1 تأكد إن صاحب التوكن هو المريض نفسه أو أدمن (منع الحجز بالنيابة)
+        var isAdmin = _currentUserService.IsInRole("Admin");
+        var isOwner = patient.ApplicationUserId == _currentUserService.UserId;
+        if (!isAdmin && !isOwner)
+            return Result<int>.Failure("You are not authorized to book for this patient.", ErrorType.Forbidden);
 
         var appointmentDate = DateOnly.FromDateTime(request.AppointmentDateTime);
         var isUnavailable = await _context.DoctorUnavailabilities
             .AnyAsync(u => u.DoctorId == request.DoctorId && u.Date == appointmentDate, cancellationToken);
 
         if (isUnavailable)
-            return Result<int>.Failure("The doctor is unavailable on this date.");
+            return Result<int>.Failure("The doctor is unavailable on this date.", ErrorType.Conflict);
 
         // 2. تأكد إن الميعاد ضمن ساعات شغل الدكتور
         var dayOfWeek = request.AppointmentDateTime.DayOfWeek;
@@ -65,7 +76,7 @@ public class CreateAppointmentCommandHandler : IRequestHandler<CreateAppointment
                 cancellationToken);
 
         if (alreadyBooked)
-            return Result<int>.Failure("This slot is already booked.");
+            return Result<int>.Failure("This slot is already booked.", ErrorType.Conflict);
 
         // 4. الحجز الفعلي
         var appointment = new Appointment
@@ -82,19 +93,24 @@ public class CreateAppointmentCommandHandler : IRequestHandler<CreateAppointment
         {
             await _context.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (DbExceptionHelper.IsUniqueConstraintViolation(ex))
         {
-            return Result<int>.Failure("This slot was just booked by someone else. Please choose another slot.");
+            return Result<int>.Failure("This slot was just booked by someone else. Please choose another slot.", ErrorType.Conflict);
         }
 
-        // 5. أطلق الـ Event للإيميل
+        // 5. أطلق الـ Event للإيميل + إشعار + SMS للدكتور
         var email = await _identityService.GetUserEmailAsync(patient.ApplicationUserId);
 
 
         if (email is not null)
         {
             await _publisher.Publish(
-                new AppointmentCreatedEvent(appointment.Id, email, appointment.AppointmentDateTime),
+                new AppointmentCreatedEvent(
+                    appointment.Id,
+                    request.DoctorId,
+                    patient.FullName,
+                    email,
+                    appointment.AppointmentDateTime),
                 cancellationToken);
 
         }

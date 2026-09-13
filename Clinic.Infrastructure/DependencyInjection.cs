@@ -19,7 +19,7 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructureServices(
         this IServiceCollection services, IConfiguration configuration)
     {
-        services.AddDbContext<ApplicationDbContext>(options =>
+        services.AddDbContextPool<ApplicationDbContext>(options =>
             options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
         services.AddScoped<IApplicationDbContext>(provider =>
@@ -29,6 +29,8 @@ public static class DependencyInjection
         {
             options.Password.RequireNonAlphanumeric = false;
             options.Password.RequiredLength = 6;
+            // السماح بالأسماء العربية كـ Username (أسماء الدكاترة في الـ Seed)
+            options.User.AllowedUserNameCharacters = null;
         })
             .AddEntityFrameworkStores<ApplicationDbContext>()
             .AddDefaultTokenProviders();
@@ -71,7 +73,9 @@ public static class DependencyInjection
         services.AddHangfireServer();
 
         services.AddScoped<IAppointmentCleanupService, AppointmentCleanupService>();
+        services.AddScoped<IRefreshTokenCleanupService, RefreshTokenCleanupService>();
         services.AddScoped<IEmailService, EmailService>();
+        services.AddScoped<ISmsSender, SmsSender>();
         services.AddHealthChecks()
             .AddDbContextCheck<ApplicationDbContext>(name: "database");
 

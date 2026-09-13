@@ -19,12 +19,12 @@ public class AddUnavailabilityCommandHandler : IRequestHandler<AddUnavailability
     {
         var doctorExists = await _context.Doctors.AnyAsync(d => d.Id == request.DoctorId, cancellationToken);
         if (!doctorExists)
-            return Result<int>.Failure("Doctor not found.");
+            return Result<int>.Failure("Doctor not found.", ErrorType.NotFound);
 
         var alreadyExists = await _context.DoctorUnavailabilities
             .AnyAsync(u => u.DoctorId == request.DoctorId && u.Date == request.Date, cancellationToken);
         if (alreadyExists)
-            return Result<int>.Failure("This date is already marked as unavailable.");
+            return Result<int>.Failure("This date is already marked as unavailable.", ErrorType.Conflict);
 
         var unavailability = new DoctorUnavailability
         {

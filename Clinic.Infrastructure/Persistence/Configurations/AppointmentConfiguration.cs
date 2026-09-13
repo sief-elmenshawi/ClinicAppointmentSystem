@@ -29,5 +29,9 @@ public class AppointmentConfiguration : IEntityTypeConfiguration<Appointment>
 
         builder.Property(a => a.RowVersion)
             .IsRowVersion();
+
+        // فهارس لتسريع فلاتر الـ Status/التاريخ والـ dashboard
+        builder.HasIndex(a => new { a.Status, a.AppointmentDateTime });
+        builder.HasIndex(a => new { a.PatientId, a.AppointmentDateTime });
     }
 }

@@ -31,7 +31,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, Result<AuthResu
 
         _context.RefreshTokens.Add(new RefreshToken
         {
-            Token = refreshToken,
+            Token = RefreshTokenHasher.Hash(refreshToken),
             UserId = userId!,
             ExpiresAt = DateTime.UtcNow.AddDays(7)
         });

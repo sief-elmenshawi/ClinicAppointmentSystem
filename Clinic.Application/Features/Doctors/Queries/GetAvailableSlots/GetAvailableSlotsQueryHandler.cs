@@ -52,6 +52,7 @@ public class GetAvailableSlotsQueryHandler
 
         // 3. ولّد كل الـ Slots الممكنة من مواعيد الشغل، واستبعد المحجوز
         var availableSlots = new List<AvailableSlotDto>();
+        var now = DateTime.Now; // الشغل بالوقت المحلي، والـ Slots وقت محلي
 
         foreach (var wh in workingHours)
         {
@@ -60,7 +61,8 @@ public class GetAvailableSlotsQueryHandler
 
             while (slotStart.AddMinutes(wh.SlotDurationMinutes) <= shiftEnd)
             {
-                if (!bookedSet.Contains(slotStart))
+                // النهارده استبعد الـ Slots اللي بدأ وقتها قبل دلوقتي
+                if (slotStart > now && !bookedSet.Contains(slotStart))
                 {
                     var slotEnd = slotStart.AddMinutes(wh.SlotDurationMinutes);
                     availableSlots.Add(new AvailableSlotDto(slotStart, slotEnd));

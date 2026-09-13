@@ -19,22 +19,15 @@ public class AppointmentCleanupService : IAppointmentCleanupService
 
     public async Task CancelStalePendingAppointmentsAsync()
     {
-        var cutoff = DateTime.UtcNow.AddHours(-1);
+        // الهدف: تحرير الـ Slots القديمة بس — نلغي الحجوزات Pending اللي ميعادها فات
+        // (مريض حجز وهو لم يأتِ والطبيب لم يؤكد)؛ لا نلغي حجز لأسبوع قادم لم يُؤكد بعد.
+        var now = DateTime.Now; // الـ AppointmentDateTime وقت محلي
 
-        var staleAppointments = await _context.Appointments
-            .Where(a => a.Status == AppointmentStatus.Pending && a.CreatedAt <= cutoff)
-            .ToListAsync();
+        var cancelled = await _context.Appointments
+            .Where(a => a.Status == AppointmentStatus.Pending && a.AppointmentDateTime <= now)
+            .ExecuteUpdateAsync(s => s.SetProperty(a => a.Status, AppointmentStatus.Cancelled));
 
-        if (staleAppointments.Count == 0)
-            return;
-
-        foreach (var appointment in staleAppointments)
-        {
-            appointment.Status = AppointmentStatus.Cancelled;
-        }
-
-        await _context.SaveChangesAsync();
-
-        _logger.LogInformation("Cancelled {Count} stale pending appointments", staleAppointments.Count);
+        if (cancelled > 0)
+            _logger.LogInformation("Cancelled {Count} stale pending appointments", cancelled);
     }
 }

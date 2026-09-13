@@ -9,15 +9,30 @@ public class GetDoctorAppointmentsQueryHandler
     : IRequestHandler<GetDoctorAppointmentsQuery, Result<PagedResult<AppointmentDto>>>
 {
     private readonly IApplicationDbContext _context;
+    private readonly ICurrentUserService _currentUserService;
 
-    public GetDoctorAppointmentsQueryHandler(IApplicationDbContext context)
+    public GetDoctorAppointmentsQueryHandler(
+        IApplicationDbContext context, ICurrentUserService currentUserService)
     {
         _context = context;
+        _currentUserService = currentUserService;
     }
 
     public async Task<Result<PagedResult<AppointmentDto>>> Handle(
         GetDoctorAppointmentsQuery request, CancellationToken cancellationToken)
     {
+        if (!_currentUserService.IsInRole("Admin"))
+        {
+            var isOwner = await _context.Doctors
+                .AnyAsync(d => d.Id == request.DoctorId
+                               && d.ApplicationUserId == _currentUserService.UserId,
+                    cancellationToken);
+
+            if (!isOwner)
+                return Result<PagedResult<AppointmentDto>>.Failure(
+                    "You are not authorized to view these appointments.", ErrorType.Forbidden);
+        }
+
         var query = _context.Appointments
             .AsNoTracking()
             .Where(a => a.DoctorId == request.DoctorId);

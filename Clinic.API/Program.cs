@@ -26,6 +26,14 @@ try
     builder.Services.AddSwaggerGen();
     builder.Services.AddProblemDetails();
 
+    // ── Response Compression (GZip/Deflate للجداول الكبيرة من Browsers/ـ Mobile) ──
+    builder.Services.AddResponseCompression(options =>
+    {
+        options.EnableForHttps = true;
+        options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.BrotliCompressionProvider>();
+        options.Providers.Add<Microsoft.AspNetCore.ResponseCompression.GzipCompressionProvider>();
+    });
+
     builder.Services.AddInfrastructureServices(builder.Configuration);
     builder.Services.AddApplicationServices();
 
@@ -40,6 +48,16 @@ try
         });
     });
 
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("Frontend", policy =>
+            policy.SetIsOriginAllowed(origin =>
+                    origin.StartsWith("http://localhost:") ||
+                    origin.StartsWith("https://localhost:"))
+                  .AllowAnyHeader()
+                  .AllowAnyMethod());
+    });
+
     var app = builder.Build();
 
     // ── Middleware Pipeline (الترتيب مهم جدًا) ───
@@ -52,7 +70,13 @@ try
         app.UseSwaggerUI();
     }
 
-    app.UseHttpsRedirection();
+    // HTTPS redirect معطّل في الـ Development حتى لا يكسر اتصال الواجهة عبر الـ proxy
+    if (!app.Environment.IsDevelopment())
+    {
+        app.UseHttpsRedirection();
+    }
+    app.UseResponseCompression();
+    app.UseCors("Frontend");
     app.UseRateLimiter();
     app.UseAuthentication();
     app.UseAuthorization();
@@ -61,11 +85,16 @@ try
     app.MapHealthChecks("/health");
     app.UseHangfireDashboard("/hangfire");
 
-    // ── Seed Data (Roles + Admin) ─────────────────
-    using (var scope = app.Services.CreateScope())
+    // ── Seed Data (Roles + Admin + Clinics/Doctors) ───
+    // فقط في الـ Development — لا نزرع حساب Admin بكلمة سر معروفة في Production
+    if (app.Environment.IsDevelopment())
     {
-        await RoleSeeder.SeedRolesAsync(scope.ServiceProvider);
-        await AdminSeeder.SeedAdminAsync(scope.ServiceProvider);
+        using (var scope = app.Services.CreateScope())
+        {
+            await RoleSeeder.SeedRolesAsync(scope.ServiceProvider);
+            await AdminSeeder.SeedAdminAsync(scope.ServiceProvider);
+            await ClinicSeeder.SeedClinicsAndDoctorsAsync(scope.ServiceProvider);
+        }
     }
 
     // ── Recurring Jobs (Hangfire) ──────────────────
@@ -76,6 +105,11 @@ try
             "cancel-stale-appointments",
             service => service.CancelStalePendingAppointmentsAsync(),
             Cron.Hourly);
+
+        recurringJobManager.AddOrUpdate<IRefreshTokenCleanupService>(
+            "cleanup-refresh-tokens",
+            service => service.CleanupExpiredTokensAsync(),
+            Cron.Daily);
     }
 
     app.Run();

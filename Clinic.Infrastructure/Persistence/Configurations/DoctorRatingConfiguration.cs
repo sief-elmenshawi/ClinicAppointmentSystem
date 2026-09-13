@@ -27,5 +27,7 @@ public class DoctorRatingConfiguration : IEntityTypeConfiguration<DoctorRating>
 
         // مريض واحد يقيّم كل Appointment مرة واحدة بس
         builder.HasIndex(r => r.AppointmentId).IsUnique();
+
+        builder.HasIndex(r => new { r.DoctorId, r.CreatedAt });
     }
 }

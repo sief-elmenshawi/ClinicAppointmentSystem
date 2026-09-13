@@ -26,7 +26,7 @@ public class CancelAppointmentCommandHandler : IRequestHandler<CancelAppointment
             .FirstOrDefaultAsync(a => a.Id == request.AppointmentId, cancellationToken);
 
         if (appointment is null)
-            return Result<bool>.Failure("Appointment not found.");
+            return Result<bool>.Failure("Appointment not found.", ErrorType.NotFound);
 
         var currentUserId = _currentUserService.UserId;
         var isAdmin = _currentUserService.IsInRole("Admin");
@@ -34,16 +34,23 @@ public class CancelAppointmentCommandHandler : IRequestHandler<CancelAppointment
                       || appointment.Patient.ApplicationUserId == currentUserId;
 
         if (!isAdmin && !isOwner)
-            return Result<bool>.Failure("You are not authorized to cancel this appointment.");
+            return Result<bool>.Failure("You are not authorized to cancel this appointment.", ErrorType.Forbidden);
 
         if (appointment.Status == AppointmentStatus.Completed)
-            return Result<bool>.Failure("Cannot cancel a completed appointment.");
+            return Result<bool>.Failure("Cannot cancel a completed appointment.", ErrorType.Conflict);
 
         if (appointment.Status == AppointmentStatus.Cancelled)
-            return Result<bool>.Failure("Appointment is already cancelled.");
+            return Result<bool>.Failure("Appointment is already cancelled.", ErrorType.Conflict);
 
         appointment.Status = AppointmentStatus.Cancelled;
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            return Result<bool>.Failure("This appointment was modified by another request. Please refresh and try again.", ErrorType.Conflict);
+        }
 
         return Result<bool>.Success(true);
     }

@@ -25,22 +25,22 @@ public class RateDoctorCommandHandler : IRequestHandler<RateDoctorCommand, Resul
             .FirstOrDefaultAsync(a => a.Id == request.AppointmentId, cancellationToken);
 
         if (appointment is null)
-            return Result<int>.Failure("Appointment not found.");
+            return Result<int>.Failure("Appointment not found.", ErrorType.NotFound);
 
         // تأكد إن المريض صاحب التوكن هو نفسه صاحب الحجز
         if (appointment.Patient.ApplicationUserId != _currentUserService.UserId)
-            return Result<int>.Failure("You are not authorized to rate this appointment.");
+            return Result<int>.Failure("You are not authorized to rate this appointment.", ErrorType.Forbidden);
 
         // تأكد إن الكشف اتعمل فعلاً
         if (appointment.Status != AppointmentStatus.Completed)
-            return Result<int>.Failure("You can only rate completed appointments.");
+            return Result<int>.Failure("You can only rate completed appointments.", ErrorType.Conflict);
 
         // تأكد إنه ماقيّمهاش قبل كده
         var alreadyRated = await _context.DoctorRatings
             .AnyAsync(r => r.AppointmentId == request.AppointmentId, cancellationToken);
 
         if (alreadyRated)
-            return Result<int>.Failure("You have already rated this appointment.");
+            return Result<int>.Failure("You have already rated this appointment.", ErrorType.Conflict);
 
         var rating = new DoctorRating
         {
@@ -57,9 +57,9 @@ public class RateDoctorCommandHandler : IRequestHandler<RateDoctorCommand, Resul
         {
             await _context.SaveChangesAsync(cancellationToken);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex) when (DbExceptionHelper.IsUniqueConstraintViolation(ex))
         {
-            return Result<int>.Failure("This appointment has already been rated.");
+            return Result<int>.Failure("This appointment has already been rated.", ErrorType.Conflict);
         }
 
         return Result<int>.Success(rating.Id);

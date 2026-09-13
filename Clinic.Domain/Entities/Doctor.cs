@@ -8,6 +8,8 @@ public class Doctor : BaseEntity , ISoftDelete
     public string ApplicationUserId { get; set; } = string.Empty; // Link لـ Identity
     public int SpecializationId { get; set; }
     public Specialization Specialization { get; set; } = null!;
+
+    public string? PhoneNumber { get; set; } // رقم مستلم إشعارات الـ SMS
     public decimal ConsultationFee { get; set; }
 
     public ICollection<DoctorWorkingHour> WorkingHours { get; set; } = new List<DoctorWorkingHour>();

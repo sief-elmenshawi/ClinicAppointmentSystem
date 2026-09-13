@@ -15,6 +15,9 @@ public class DoctorConfiguration : IEntityTypeConfiguration<Doctor>
         builder.Property(d => d.ConsultationFee)
             .HasColumnType("decimal(18,2)");
 
+        builder.Property(d => d.PhoneNumber)
+            .HasMaxLength(20);
+
         builder.HasOne(d => d.Specialization)
             .WithMany(s => s.Doctors)
             .HasForeignKey(d => d.SpecializationId)

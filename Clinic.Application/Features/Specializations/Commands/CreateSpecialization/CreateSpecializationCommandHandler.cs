@@ -23,7 +23,7 @@ public class CreateSpecializationCommandHandler
             .AnyAsync(s => s.Name == request.Name, cancellationToken);
 
         if (exists)
-            return Result<int>.Failure("Specialization already exists.");
+            return Result<int>.Failure("Specialization already exists.", ErrorType.Conflict);
 
         var specialization = new Specialization { Name = request.Name };
 
