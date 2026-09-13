@@ -1,3 +1,4 @@
+using Clinic.API;
 using Clinic.Application;
 using Clinic.Application.Interfaces;
 using Clinic.Infrastructure;
@@ -48,12 +49,17 @@ try
         });
     });
 
+    // ══ CORS ══
+    // الـ origins المُسمح بيها بتتقرا من الـ config (Cors:AllowedOrigins) عشان تقدر
+    // ترفع الفرونت على أي دومين (Vercel/Netlify) وتضيفه في الـ Production من غير تعديل كود.
+    var allowedOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>() ?? [];
+
     builder.Services.AddCors(options =>
     {
         options.AddPolicy("Frontend", policy =>
-            policy.SetIsOriginAllowed(origin =>
-                    origin.StartsWith("http://localhost:") ||
-                    origin.StartsWith("https://localhost:"))
+            policy.WithOrigins(allowedOrigins)
                   .AllowAnyHeader()
                   .AllowAnyMethod());
     });
@@ -83,7 +89,11 @@ try
 
     app.MapControllers();
     app.MapHealthChecks("/health");
-    app.UseHangfireDashboard("/hangfire");
+    // لوحة الـ dashboard مش مفتوحة لأي حد — محتاجة Bearer token بيوزر عليه صلاحية Admin
+    app.UseHangfireDashboard("/hangfire", new DashboardOptions
+    {
+        Authorization = new[] { new HangfireAdminAuthFilter() }
+    });
 
     // ── Seed Data (Roles + Admin + Clinics/Doctors) ───
     // فقط في الـ Development — لا نزرع حساب Admin بكلمة سر معروفة في Production

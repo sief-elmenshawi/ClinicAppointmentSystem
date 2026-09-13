@@ -45,6 +45,11 @@ public static class DependencyInjection
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()!;
         services.Configure<JwtSettings>(configuration.GetSection("JwtSettings"));
 
+        // Fail-fast: ممنوع تشغيل التطبيق بـ secret مفضوح/placeholder أو أقصر من 32 حرف.
+        // الـ secret الحقيقي لازم يتضبط برة الريبو: JwtSettings__Secret (Environment Variable)
+        // أو user-secrets وقت التطوير المحلي.
+        ValidateJwtSecret(jwtSettings.Secret);
+
         // JWT Authentication
         services.AddAuthentication(options =>
         {
@@ -80,5 +85,19 @@ public static class DependencyInjection
             .AddDbContextCheck<ApplicationDbContext>(name: "database");
 
         return services;
+    }
+
+    private static void ValidateJwtSecret(string secret)
+    {
+        var isKnownPlaceholder = string.IsNullOrEmpty(secret)
+                                 || string.Equals(secret, "CHANGE_ME_IN_PRODUCTION", StringComparison.Ordinal)
+                                 || secret.Length < 32;
+        if (isKnownPlaceholder)
+        {
+            throw new InvalidOperationException(
+                "JwtSettings:Secret محتاج يكون 32+ حرف عشوائي ومش placeholder. " +
+                "اضبطه برة الريبو بـ Environment Variable: JwtSettings__Secret " +
+                "(أو dotnet user-secrets في التطوير المحلي).");
+        }
     }
 }
