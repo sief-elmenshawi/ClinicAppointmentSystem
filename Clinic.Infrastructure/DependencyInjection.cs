@@ -48,7 +48,7 @@ public static class DependencyInjection
         // Fail-fast: ممنوع تشغيل التطبيق بـ secret مفضوح/placeholder أو أقصر من 32 حرف.
         // الـ secret الحقيقي لازم يتضبط برة الريبو: JwtSettings__Secret (Environment Variable)
         // أو user-secrets وقت التطوير المحلي.
-        ValidateJwtSecret(jwtSettings.Secret);
+        ValidateJwtSecret(jwtSettings.Secret, IsDevelopment(configuration));
 
         // JWT Authentication
         services.AddAuthentication(options =>
@@ -87,17 +87,33 @@ public static class DependencyInjection
         return services;
     }
 
-    private static void ValidateJwtSecret(string secret)
+    private static void ValidateJwtSecret(string secret, bool isDevelopment)
     {
         var isKnownPlaceholder = string.IsNullOrEmpty(secret)
                                  || string.Equals(secret, "CHANGE_ME_IN_PRODUCTION", StringComparison.Ordinal)
                                  || secret.Length < 32;
+
+        // أي بيئة غير الـ Development ممنوع فيها secret متسجل في الريبو نفسه — حتى لو طويل —
+        // لأن أي قيمة موجودة في appsettings.*.json المتسجلة = معروفة publicly.
+        // الـ dev secret بيحمل علامة "DevOnly" وبيتسمح بيها بس لما تكون فعلاً في Development.
+        if (!isDevelopment && secret.Contains("DevOnly", StringComparison.OrdinalIgnoreCase))
+            isKnownPlaceholder = true;
+
         if (isKnownPlaceholder)
         {
             throw new InvalidOperationException(
-                "JwtSettings:Secret محتاج يكون 32+ حرف عشوائي ومش placeholder. " +
+                "JwtSettings:Secret لازم يكون 32+ حرف عشوائي وsecret جديد غير معروف publicly. " +
+                "في أي بيئة غير Development ممنوع استخدام أي secret متسجل في الريبو. " +
                 "اضبطه برة الريبو بـ Environment Variable: JwtSettings__Secret " +
                 "(أو dotnet user-secrets في التطوير المحلي).");
         }
+    }
+
+    private static bool IsDevelopment(IConfiguration configuration)
+    {
+        var environment = configuration["environment"]
+                          ?? Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT")
+                          ?? Environment.GetEnvironmentVariable("DOTNET_ENVIRONMENT");
+        return string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase);
     }
 }
