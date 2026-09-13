@@ -151,6 +151,8 @@ concurrency guarantees, doctor working model, departments/clinics,
 notifications, admin dashboard, audit logging, background jobs, rate limiting,
 CORS, health checks, and security hardening.
 
-## License
+## Related
 
-Distributed under the [MIT License](LICENSE).
+- **Frontend**: [ClinicFrontend](https://github.com/sief-elmenshawi/ClinicFrontend) — React
+  + Vite + Tailwind SPA that consumes this API (appointments, doctor availability,
+  auth with refresh token rotation, notifications, admin dashboard).
